@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cloud Study Planner & Tracker</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    :root{
+      --bg:#0f172a;
+      --card:#111827;
+      --muted:#94a3b8;
+      --text:#e5e7eb;
+      --primary:#22c55e;
+      --accent:#38bdf8;
+      --warning:#f59e0b;
+      --danger:#ef4444;
+      --border:#1f2937;
+      --chip:#334155;
+      --success:#10b981;
+    }
+    html,body{ margin:0; padding:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,Segoe UI,Helvetica,Arial,sans-serif; }
+    
+    .app-header{
+      padding:16px 20px; border-bottom:1px solid var(--border);
+      display:flex; gap:16px; align-items:center; justify-content:space-between;
+    }
+    h1{ font-size:20px; margin:0; }
+    .nav-tabs{ display:flex; gap:8px; }
+    .nav-tab{
+      background:#222; color:var(--muted); border:1px solid var(--border);
+      padding:8px 16px; border-radius:8px; cursor:pointer; transition:all 0.2s;
+    }
+    .nav-tab.active{ background:var(--accent); color:#001018; border-color:transparent; }
+    .nav-tab:hover:not(.active){ background:#27272a; color:var(--text); }
+
+    .user-info{
+      display:flex; align-items:center; gap:12px; font-size:14px;
+    }
+    .sync-status{
+      padding:4px 8px; border-radius:6px; font-size:12px;
+    }
+    .sync-status.online{ background:#10b981; color:#fff; }
+    .sync-status.offline{ background:#ef4444; color:#fff; }
+    .sync-status.syncing{ background:#f59e0b; color:#000; }
+
+    .auth-container{
+      position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8);
+      display:flex; align-items:center; justify-content:center; z-index:1000;
+    }
+    .auth-box{
+      background:var(--card); border:1px solid var(--border); border-radius:12px;
+      padding:32px; max-width:400px; width:90%;
+    }
+    .auth-tabs{ display:flex; gap:8px; margin-bottom:24px; }
+    .auth-tab{
+      flex:1; padding:8px 16px; border:1px solid var(--border); border-radius:8px;
+      cursor:pointer; text-align:center; transition:all 0.2s;
+    }
+    .auth-tab.active{ background:var(--accent); color:#001018; }
+
+    .preset-controls{ display:flex; flex-wrap:wrap; gap:8px; }
+    .btn{
+      background:#222; color:var(--text); border:1px solid var(--border);
+      padding:8px 12px; border-radius:8px; cursor:pointer; transition:all 0.2s;
+    }
+    .btn:hover{ background:#27272a; }
+    .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+    .btn-primary{ background:var(--accent); color:#001018; border-color:transparent; }
+    .btn-primary:hover{ filter:brightness(0.95); }
+    .btn-secondary{ background:#2563eb; border-color:#2563eb; color:#fff; }
+    .btn-success{ background:var(--success); border-color:var(--success); color:#fff; }
+    .btn-warning{ background:var(--warning); border-color:var(--warning); color:#000; }
+    .btn-danger{ background:var(--danger); border-color:var(--danger); color:#fff; }
+    .btn-outline{ background:transparent; border-color:var(--muted); color:var(--muted); }
+    .btn-outline:hover{ border-color:var(--text); color:var(--text); }
+
+    .page{ display:none; }
+    .page.active{ display:block; }
+
+    .app-main{ display:grid; grid-template-columns: 380px 1fr; gap:20px; padding:20px; }
+    .left{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+    .right{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+
+    h2{ margin:0 0 12px; font-size:16px; }
+    h3{ margin:0 0 8px; font-size:14px; color:var(--accent); }
+    .mt{ margin-top:20px; }
+
+    .form-row{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+    .form-row.two{ flex-direction:row; gap:12px; }
+    .form-row.two > div{ flex:1; }
+    label{ color:var(--muted); font-size:12px; }
+    input[type="text"],input[type="email"],input[type="password"],input[type="time"],input[type="date"],input[type="number"],select,textarea{
+      width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border);
+      background:#0b1220; color:var(--text);
+    }
+    textarea{ resize:vertical; min-height:60px; }
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+    .metrics{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px; margin-top:10px; }
+    .metric{ background:#0b1220; border:1px solid var(--border); border-radius:10px; padding:10px; }
+    .metric span{ font-size:12px; color:var(--muted); }
+    .metric strong{ display:block; margin-top:4px; font-size:16px; }
+    .metric.highlight{ border-color:#2563eb; }
+    .metric.success{ border-color:var(--success); }
+    .metric.warning{ border-color:var(--warning); }
+
+    .schedule-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+    .schedule-item{
+      background:#0b1220; border:1px solid var(--border); border-radius:10px; padding:10px; display:grid;
+      grid-template-columns: 26px 1fr auto; gap:10px; align-items:center;
+    }
+    .handle{ width:8px; height:28px; background:linear-gradient(90deg,#263242 25%, transparent 25% 50%, #263242 50% 75%, transparent 75%); background-size:8px 100%; border-radius:4px; }
+    .item-main{ display:flex; flex-direction:column; gap:2px; }
+    .item-title{ font-weight:600; }
+    .item-sub{ font-size:12px; color:var(--muted); }
+    .item-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+    .chip{ font-size:11px; background:var(--chip); color:#cbd5e1; padding:2px 8px; border-radius:999px; border:1px solid #475569; }
+    .chip.study{ background:#0b3a2a; border-color:#1f8b57; color:#b5f5d0; }
+    .chip.break{ background:#19324a; border-color:#2563eb; color:#cfe8ff; }
+    .chip.meal{ background:#3a2a0b; border-color:#f59e0b; color:#ffe5b3; }
+    .chip.exercise{ background:#2a0b3a; border-color:#a855f7; color:#edd4ff; }
+    .chip.free{ background:#2a2a2a; border-color:#575757; color:#e5e5e5; }
+    .chip.routine{ background:#1f2937; border-color:#4b5563; color:#cbd5e1; }
+
+    .item-actions{ display:flex; gap:6px; }
+    .icon-btn{
+      background:#111827; color:#cbd5e1; border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer;
+    }
+    .icon-btn:hover{ background:#1f2937; }
+
+    .timer-section{
+      background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px;
+    }
+    .timer-display{
+      font-size:32px; font-weight:bold; text-align:center; margin:16px 0;
+      color:var(--accent);
+    }
+    .timer-controls{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+
+    .activity-log{ max-height:400px; overflow-y:auto; }
+    .log-entry{
+      background:#0b1220; border:1px solid var(--border); border-radius:8px; padding:8px; margin-bottom:8px;
+    }
+    .log-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .log-time{ font-size:12px; color:var(--muted); }
+    .log-activity{ font-weight:600; }
+    .log-notes{ font-size:12px; color:var(--muted); margin-top:4px; }
+
+    .comparison-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px; }
+    .comparison-card{ background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:16px; }
+    .comparison-header{ font-weight:600; margin-bottom:8px; text-align:center; }
+    .planned{ border-color:#2563eb; }
+    .actual{ border-color:var(--success); }
+
+    .progress-bar{
+      width:100%; height:8px; background:#1f2937; border-radius:4px; margin:8px 0; overflow:hidden;
+    }
+    .progress-fill{
+      height:100%; background:var(--accent); border-radius:4px; transition:width 0.3s;
+    }
+
+    .app-footer{ padding:12px 20px; border-top:1px solid var(--border); color:var(--muted); }
+
+    .loading{
+      display:flex; align-items:center; justify-content:center; padding:40px;
+      color:var(--muted); font-style:italic;
+    }
+
+    @media (max-width: 980px){
+      .app-main{ grid-template-columns: 1fr; }
+      .comparison-grid{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Authentication Modal -->
+  <div id="authContainer" class="auth-container">
+    <div class="auth-box">
+      <h2 style="text-align:center; margin-bottom:24px;">☁️ Cloud Study Planner</h2>
+      
+      <div class="auth-tabs">
+        <div class="auth-tab active" data-tab="login">Login</div>
+        <div class="auth-tab" data-tab="signup">Sign Up</div>
+      </div>
+
+      <div id="loginForm" class="auth-form">
+        <div class="form-row">
+          <label>Email</label>
+          <input type="email" id="loginEmail" placeholder="your@email.com" required />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input type="password" id="loginPassword" placeholder="Your password" required />
+        </div>
+        <div class="actions">
+          <button id="loginBtn" class="btn btn-primary" style="width:100%;">Login</button>
+        </div>
+        <p style="text-align:center; margin-top:16px; color:var(--muted); font-size:12px;">
+          Don't have an account? Click "Sign Up" above.
+        </p>
+      </div>
+
+      <div id="signupForm" class="auth-form" style="display:none;">
+        <div class="form-row">
+          <label>Email</label>
+          <input type="email" id="signupEmail" placeholder="your@email.com" required />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input type="password" id="signupPassword" placeholder="Min 6 characters" required />
+        </div>
+        <div class="form-row">
+          <label>Confirm Password</label>
+          <input type="password" id="signupConfirm" placeholder="Confirm password" required />
+        </div>
+        <div class="actions">
+          <button id="signupBtn" class="btn btn-primary" style="width:100%;">Create Account</button>
+        </div>
+        <p style="text-align:center; margin-top:16px; color:var(--muted); font-size:12px;">
+          Already have an account? Click "Login" above.
+        </p>
+      </div>
+
+      <div id="authError" style="color:var(--danger); font-size:12px; text-align:center; margin-top:12px; display:none;"></div>
+      <div id="authLoading" class="loading" style="display:none;">
+        <span>Connecting...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="mainApp" style="display:none;">
+    <header class="app-header">
+      <h1>☁️ Cloud Study Planner</h1>
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-page="planning">Planning</button>
+        <button class="nav-tab" data-page="tracking">Daily Tracking</button>
+        <button class="nav-tab" data-page="analysis">Analysis</button>
+      </nav>
+      <div class="user-info">
+        <div id="syncStatus" class="sync-status online">●  Synced</div>
+        <span id="userEmail">user@email.com</span>
+        <button id="logoutBtn" class="btn btn-outline">Logout</button>
+      </div>
+    </header>
+
+    <!-- PLANNING PAGE -->
+    <div id="planning" class="page active">
+      <div class="preset-controls" style="padding:16px 20px; border-bottom:1px solid var(--border);">
+        <button id="loadContinuous" class="btn">Load Continuous</button>
+        <button id="loadNonContinuous" class="btn">Load Non-Continuous</button>
+        <button id="clearAll" class="btn btn-outline">Clear All</button>
+        <button id="exportText" class="btn btn-secondary">Export Text</button>
+      </div>
+
+      <main class="app-main">
+        <section class="left">
+          <h2>Add / Edit Block</h2>
+          <form id="blockForm">
+            <div class="form-row">
+              <label>Label</label>
+              <input type="text" id="label" placeholder="e.g., Study Block 1" required />
+            </div>
+            <div class="form-row two">
+              <div>
+                <label>Start</label>
+                <input type="time" id="start" required />
+              </div>
+              <div>
+                <label>End</label>
+                <input type="time" id="end" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Type</label>
+              <select id="type" required>
+                <option value="study">Study</option>
+                <option value="break">Break</option>
+                <option value="meal">Meal</option>
+                <option value="exercise">Exercise</option>
+                <option value="free">Free</option>
+                <option value="routine">Routine</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Notes (optional)</label>
+              <input type="text" id="notes" placeholder="e.g., Active Recall, Pomodoro" />
+            </div>
+            <div class="actions">
+              <button type="submit" class="btn btn-primary" id="submitBtn">Add Block</button>
+              <button type="button" class="btn btn-outline" id="cancelEdit" hidden>Cancel Edit</button>
+            </div>
+          </form>
+
+          <h2 class="mt">Planning Metrics</h2>
+          <div class="metrics">
+            <div class="metric"><span>Total Day</span><strong id="totalDay">0h 0m</strong></div>
+            <div class="metric"><span>Study</span><strong id="sumStudy">0h 0m</strong></div>
+            <div class="metric"><span>Breaks</span><strong id="sumBreaks">0h 0m</strong></div>
+            <div class="metric"><span>Meals</span><strong id="sumMeals">0h 0m</strong></div>
+            <div class="metric"><span>Exercise</span><strong id="sumExercise">0h 0m</strong></div>
+            <div class="metric"><span>Free</span><strong id="sumFree">0h 0m</strong></div>
+            <div class="metric"><span>Routine</span><strong id="sumRoutine">0h 0m</strong></div>
+            <div class="metric highlight"><span>Study Utilization</span><strong id="utilization">0%</strong></div>
+          </div>
+        </section>
+
+        <section class="right">
+          <h2>Planned Schedule</h2>
+          <ul id="scheduleList" class="schedule-list"></ul>
+        </section>
+      </main>
+    </div>
+
+    <!-- TRACKING PAGE -->
+    <div id="tracking" class="page">
+      <main class="app-main">
+        <section class="left">
+          <div class="timer-section">
+            <h3>Activity Timer</h3>
+            <div class="timer-display" id="timerDisplay">00:00:00</div>
+            <div class="timer-controls">
+              <button id="startTimer" class="btn btn-success">Start</button>
+              <button id="pauseTimer" class="btn btn-warning">Pause</button>
+              <button id="stopTimer" class="btn btn-danger">Stop & Log</button>
+            </div>
+            <div style="margin-top:12px;">
+              <label style="display:block; margin-bottom:4px;">Current Activity</label>
+              <select id="currentActivity" class="form-control">
+                <option value="study">Study</option>
+                <option value="break">Break</option>
+                <option value="meal">Meal</option>
+                <option value="exercise">Exercise</option>
+                <option value="free">Free Time</option>
+                <option value="routine">Routine</option>
+              </select>
+            </div>
+          </div>
+
+          <h2>Quick Log Activity</h2>
+          <form id="logForm">
+            <div class="form-row">
+              <label>Activity</label>
+              <input type="text" id="logActivity" placeholder="e.g., Studied Mathematics" required />
+            </div>
+            <div class="form-row two">
+              <div>
+                <label>Start Time</label>
+                <input type="time" id="logStart" required />
+              </div>
+              <div>
+                <label>End Time</label>
+                <input type="time" id="logEnd" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Type</label>
+              <select id="logType" required>
+                <option value="study">Study</option>
+                <option value="break">Break</option>
+                <option value="meal">Meal</option>
+                <option value="exercise">Exercise</option>
+                <option value="free">Free</option>
+                <option value="routine">Routine</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Notes</label>
+              <textarea id="logNotes" placeholder="What did you accomplish? How did it go?"></textarea>
+            </div>
+            <div class="actions">
+              <button type="submit" class="btn btn-primary">Log Activity</button>
+            </div>
+          </form>
+
+          <h2 class="mt">Today's Summary</h2>
+          <div class="metrics">
+            <div class="metric success"><span>Study Time</span><strong id="actualStudy">0h 0m</strong></div>
+            <div class="metric"><span>Total Time</span><strong id="totalActual">0h 0m</strong></div>
+            <div class="metric warning"><span>Goal Progress</span><strong id="goalProgress">0%</strong></div>
+            <div class="metric highlight"><span>Efficiency</span><strong id="efficiency">0%</strong></div>
+          </div>
+        </section>
+
+        <section class="right">
+          <h2>Date Selection</h2>
+          <div class="form-row">
+            <label>View Date</label>
+            <input type="date" id="dateSelector" />
+          </div>
+
+          <h2 class="mt">Activity Log</h2>
+          <div class="activity-log" id="activityLog"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ANALYSIS PAGE -->
+    <div id="analysis" class="page">
+      <main class="app-main">
+        <section class="left">
+          <h2>Study Goal</h2>
+          <div class="form-row">
+            <label>Daily Study Target (hours)</label>
+            <input type="number" id="studyGoal" min="1" max="12" value="8" step="0.5" />
+          </div>
+          <button id="saveGoal" class="btn btn-primary">Save Goal</button>
+
+          <h2 class="mt">Weekly Progress</h2>
+          <div class="progress-bar">
+            <div class="progress-fill" id="weekProgress" style="width: 0%"></div>
+          </div>
+          <p style="text-align:center; font-size:12px; color:var(--muted); margin-top:4px;">
+            <span id="progressText">Loading...</span>
+          </p>
+
+          <h2 class="mt">Analytics</h2>
+          <div class="metrics">
+            <div class="metric"><span>This Week</span><strong id="weeklyStudy">0h 0m</strong></div>
+            <div class="metric"><span>Daily Average</span><strong id="avgDaily">0h 0m</strong></div>
+            <div class="metric success"><span>Best Day</span><strong id="bestDay">0h 0m</strong></div>
+            <div class="metric warning"><span>Streak</span><strong id="streak">0 days</strong></div>
+          </div>
+        </section>
+
+        <section class="right">
+          <h2>Today's Comparison</h2>
+          <div class="comparison-grid">
+            <div class="comparison-card planned">
+              <div class="comparison-header">📅 Planned</div>
+              <div id="plannedBreakdown">Loading...</div>
+            </div>
+            <div class="comparison-card actual">
+              <div class="comparison-header">✅ Actual</div>
+              <div id="actualBreakdown">Loading...</div>
+            </div>
+          </div>
+
+          <h3>Smart Insights</h3>
+          <div id="insights" style="background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:16px;">
+            <p style="color:var(--muted); font-style:italic;">Loading insights...</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <small>☁️ Data automatically syncs across all your devices • Powered by Firebase</small>
+  </footer>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // ⚠️ IMPORTANT: Replace with your Firebase configuration
+    // Get this from: https://console.firebase.google.com
+   
+const firebaseConfig = {
+  apiKey: "AIzaSyAGhVqKYQJHMWmLBho0dAuDtccRqAz4QdY",
+  authDomain: "abdul-study-planner.firebaseapp.com",
+  projectId: "abdul-study-planner",
+  storageBucket: "abdul-study-planner.firebasestorage.app",
+  messagingSenderId: "872908296627",
+  appId: "1:872908296627:web:4c7c9f710e923c84837bc6",
+  measurementId: "G-GR4ZBZ58PG"
+};
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // === UTILITY FUNCTIONS ===
+    const toMinutes = (t) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+    const fmtDur = (mins) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
+    const formatTime = (seconds) => {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    };
+    const getTodayString = () => new Date().toISOString().split('T')[0];
+
+    const TYPES = ["study", "break", "meal", "exercise", "free", "routine"];
+    const PRESETS = {
+      continuous: [
+        { label: "Morning Routine", start: "06:00", end: "07:00", type: "routine", notes: "" },
+        { label: "Breakfast + Goal Setting", start: "07:00", end: "08:00", type: "meal", notes: "" },
+        { label: "Study Block 1 (Deep Focus)", start: "08:00", end: "10:00", type: "study", notes: "Deep work / Hard subjects" },
+        { label: "Break", start: "10:00", end: "10:15", type: "break", notes: "Stretch + Hydrate" },
+        { label: "Study Block 2 (Active Recall)", start: "10:15", end: "12:15", type: "study", notes: "Active recall / Self-testing" },
+        { label: "Lunch Break", start: "12:15", end: "13:15", type: "meal", notes: "" },
+        { label: "Study Block 3 (Problem Solving)", start: "13:15", end: "15:15", type: "study", notes: "Problem sets / Practice" },
+        { label: "Break", start: "15:15", end: "15:30", type: "break", notes: "Walk + Fresh air" },
+        { label: "Study Block 4 (Review & Practice)", start: "15:30", end: "17:30", type: "study", notes: "Review + Spaced repetition" },
+        { label: "Exercise", start: "17:30", end: "18:30", type: "exercise", notes: "" },
+        { label: "Dinner", start: "18:30", end: "19:30", type: "meal", notes: "" },
+        { label: "Free Time", start: "19:30", end: "20:30", type: "free", notes: "" },
+        { label: "Light Review / Plan", start: "20:30", end: "21:30", type: "study", notes: "Plan next day" },
+        { label: "Wind Down", start: "21:30", end: "22:00", type: "routine", notes: "" }
+      ],
+      nonContinuous: [
+        { label: "Morning Routine", start: "06:00", end: "07:00", type: "routine", notes: "" },
+        { label: "Breakfast", start: "07:00", end: "08:00", type: "meal", notes: "" },
+        { label: "Study Session 1", start: "08:00", end: "09:30", type: "study", notes: "Pomodoro / New concepts" },
+        { label: "Long Break", start: "09:30", end: "10:00", type: "break", notes: "" },
+        { label: "Study Session 2", start: "10:00", end: "11:00", type: "study", notes: "Active recall" },
+        { label: "Free time / Errands", start: "11:00", end: "12:00", type: "free", notes: "" },
+        { label: "Lunch", start: "12:00", end: "13:00", type: "meal", notes: "" },
+        { label: "Study Session 3", start: "13:00", end: "14:30", type: "study", notes: "New concepts" },
+        { label: "Physical activity / Break", start: "14:30", end: "15:30", type: "exercise", notes: "" },
+        { label: "Study Session 4", start: "15:30", end: "17:00", type: "study", notes: "Practice problems" },
+        { label: "Break / Social time", start: "17:00", end: "18:00", type: "free", notes: "" },
+        { label: "Dinner", start: "18:00", end: "19:00", type: "meal", notes: "" },
+        { label: "Study Session 5", start: "19:00", end: "20:30", type: "study", notes: "Review" },
+        { label: "Final Break", start: "20:30", end: "21:00", type: "break", notes: "" },
+        { label: "Study Session 6", start: "21:00", end: "22:00", type: "study", notes: "Light review" }
+      ]
+    };
+
+    // === STATE ===
+    let currentUser = null;
+    let schedule = [];
+    let activityLogs = {};
+    let studyGoal = 8;
+    let currentPage = 'planning';
+    let timerInterval = null;
+    let timerSeconds = 0;
+    let timerRunning = false;
+    let editIndex = null;
+
+    // === DOM ELEMENTS ===
+    const authContainer = document.getElementById('authContainer');
+    const mainApp = document.getElementById('mainApp');
+    const syncStatus = document.getElementById('syncStatus');
+    const userEmail = document.getElementById('userEmail');
+
+    // Auth elements
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const authError = document.getElementById('authError');
+    const authLoading = document.getElementById('authLoading');
+
+    // Main app elements
+    const scheduleList = document.getElementById('scheduleList');
+    const blockForm = document.getElementById('blockForm');
+    const logForm = document.getElementById('logForm');
+    const timerDisplay = document.getElementById('timerDisplay');
+    const activityLog = document.getElementById('activityLog');
+    const dateSelector = document.getElementById('dateSelector');
+
+    // Initialize
+    dateSelector.value = getTodayString();
+    document.getElementById('start').value = "08:00";
+    document.getElementById('end').value = "09:00";
+
+    // === AUTHENTICATION ===
+    authTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        authTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        if (tab.dataset.tab === 'login') {
+          loginForm.style.display = 'block';
+          signupForm.style.display = 'none';
+        } else {
+          loginForm.style.display = 'none';
+          signupForm.style.display = 'block';
+        }
+      });
+    });
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      
+      if (!email || !password) {
+        showAuthError('Please fill in all fields');
+        return;
+      }
+
+      showAuthLoading(true);
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        showAuthError(getFirebaseErrorMessage(error.code));
+      }
+      showAuthLoading(false);
+    });
+
+    document.getElementById('signupBtn').addEventListener('click', async () => {
+      const email = document.getElementById('signupEmail').value.trim();
+      const password = document.getElementById('signupPassword').value;
+      const confirm = document.getElementById('signupConfirm').value;
+      
+      if (!email || !password || !confirm) {
+        showAuthError('Please fill in all fields');
+        return;
+      }
+      if (password !== confirm) {
+        showAuthError('Passwords do not match');
+        return;
+      }
+      if (password.length < 6) {
+        showAuthError('Password must be at least 6 characters');
+        return;
+      }
+
+      showAuthLoading(true);
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        // Initialize user data
+        await initializeUserData(userCredential.user.uid);
+      } catch (error) {
+        showAuthError(getFirebaseErrorMessage(error.code));
+      }
+      showAuthLoading(false);
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    });
+
+    function showAuthError(message) {
+      authError.textContent = message;
+      authError.style.display = 'block';
+      setTimeout(() => {
+        authError.style.display = 'none';
+      }, 5000);
+    }
+
+    function showAuthLoading(show) {
+      authLoading.style.display = show ? 'block' : 'none';
+    }
+
+    function getFirebaseErrorMessage(code) {
+      switch (code) {
+        case 'auth/email-already-in-use':
+          return 'Email already registered. Try logging in instead.';
+        case 'auth/invalid-email':
+          return 'Invalid email address.';
+        case 'auth/operation-not-allowed':
+          return 'Email/password accounts are not enabled.';
+        case 'auth/weak-password':
+          return 'Password is too weak.';
+        case 'auth/user-disabled':
+          return 'Account has been disabled.';
+        case 'auth/user-not-found':
+          return 'No account found with this email.';
+        case 'auth/wrong-password':
+          return 'Incorrect password.';
+        default:
+          return 'Authentication error. Please try again.';
+      }
+    }
+
+    // === FIREBASE DATA FUNCTIONS ===
+    async function initializeUserData(userId) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        if (!userDoc.exists()) {
+          await setDoc(doc(db, 'users', userId), {
+            email: currentUser.email,
+            studyGoal: 8,
+            createdAt: new Date(),
+            lastActive: new Date()
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing user data:', error);
+      }
+    }
+
+    async function saveSchedule() {
+      if (!currentUser) return;
+      
+      try {
+        await setDoc(doc(db, 'users', currentUser.uid, 'data', 'schedule'), {
+          schedule: schedule,
+          updatedAt: new Date()
+        });
+        updateSyncStatus('online');
+      } catch (error) {
+        console.error('Error saving schedule:', error);
+        updateSyncStatus('offline');
+      }
+    }
+
+    async function loadSchedule() {
+      if (!currentUser) return;
+      
+      try {
+        const scheduleDoc = await getDoc(doc(db, 'users', currentUser.uid, 'data', 'schedule'));
+        if (scheduleDoc.exists()) {
+          schedule = scheduleDoc.data().schedule || [];
+          renderSchedule();
+        }
+      } catch (error) {
+        console.error('Error loading schedule:', error);
+      }
+    }
+
+    async function saveActivityLog(date, logs) {
+      if (!currentUser) return;
+      
+      try {
+        await setDoc(doc(db, 'users', currentUser.uid, 'logs', date), {
+          logs: logs,
+          updatedAt: new Date()
+        });
+        updateSyncStatus('online');
+      } catch (error) {
+        console.error('Error saving activity log:', error);
+        updateSyncStatus('offline');
+      }
+    }
+
+    async function loadActivityLogs() {
+      if (!currentUser) return;
+      
+      try {
+        const logsQuery = query(collection(db, 'users', currentUser.uid, 'logs'));
+        const logsSnapshot = await getDocs(logsQuery);
+        
+        activityLogs = {};
+        logsSnapshot.forEach(doc => {
+          activityLogs[doc.id] = doc.data().logs || [];
+        });
+        
+        renderActivityLog();
+        updateMetrics();
+      } catch (error) {
+        console.error('Error loading activity logs:', error);
+      }
+    }
+
+    async function saveUserSettings() {
+      if (!currentUser) return;
+      
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          studyGoal: studyGoal,
+          lastActive: new Date()
+        });
+      } catch (error) {
+        console.error('Error saving user settings:', error);
+      }
+    }
+
+    async function loadUserSettings() {
+      if (!currentUser) return;
+      
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          studyGoal = data.studyGoal || 8;
+          document.getElementById('studyGoal').value = studyGoal;
+        }
+      } catch (error) {
+        console.error('Error loading user settings:', error);
+      }
+    }
+
+    // === UI FUNCTIONS ===
+    function updateSyncStatus(status) {
+      syncStatus.className = `sync-status ${status}`;
+      switch (status) {
+        case 'online':
+          syncStatus.innerHTML = '● Synced';
+          break;
+        case 'offline':
+          syncStatus.innerHTML = '● Offline';
+          break;
+        case 'syncing':
+          syncStatus.innerHTML = '● Syncing...';
+          break;
+      }
+    }
+
+    function renderSchedule() {
+      schedule.sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+      scheduleList.innerHTML = "";
+      
+      schedule.forEach((blk, idx) => {
+        const li = document.createElement("li");
+        li.className = "schedule-item";
+        
+        const main = document.createElement("div");
+        main.className = "item-main";
+        
+        const title = document.createElement("div");
+        title.className = "item-title";
+        title.textContent = `${blk.label} • ${blk.start}–${blk.end}`;
+        
+        const sub = document.createElement("div");
+        sub.className = "item-sub";
+        const dur = toMinutes(blk.end) - toMinutes(blk.start);
+        sub.textContent = `${blk.type.toUpperCase()} • ${fmtDur(dur)}`;
+        
+        const chips = document.createElement("div");
+        chips.className = "item-chips";
+        const typeChip = document.createElement("span");
+        typeChip.className = `chip ${blk.type}`;
+        typeChip.textContent = blk.type;
+        chips.appendChild(typeChip);
+        
+        if (blk.notes) {
+          const notesChip = document.createElement("span");
+          notesChip.className = "chip";
+          notesChip.textContent = blk.notes;
+          chips.appendChild(notesChip);
+        }
+        
+        main.appendChild(title);
+        main.appendChild(sub);
+        main.appendChild(chips);
+        
+        const actions = document.createElement("div");
+        actions.className = "item-actions";
+        
+        const editBtn = document.createElement("button");
+        editBtn.className = "icon-btn";
+        editBtn.textContent = "Edit";
+        editBtn.onclick = () => startEdit(idx);
+        
+        const delBtn = document.createElement("button");
+        delBtn.className = "icon-btn";
+        delBtn.textContent = "Delete";
+        delBtn.onclick = () => deleteBlock(idx);
+        
+        actions.appendChild(editBtn);
+        actions.appendChild(delBtn);
+        
+        li.appendChild(main);
+        li.appendChild(actions);
+        scheduleList.appendChild(li);
+      });
+      
+      updatePlanningMetrics();
+    }
+
+    function renderActivityLog() {
+      const date = dateSelector.value;
+      const logs = activityLogs[date] || [];
+      
+      if (logs.length === 0) {
+        activityLog.innerHTML = '<p style="color:var(--muted); font-style:italic; text-align:center;">No activities logged for this date.</p>';
+        return;
+      }
+      
+      activityLog.innerHTML = '';
+      logs.forEach(log => {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        
+        const duration = toMinutes(log.end) - toMinutes(log.start);
+        
+        entry.innerHTML = `
+          <div class="log-header">
+            <span class="log-activity">${log.activity}</span>
+            <span class="chip ${log.type}">${log.type}</span>
+          </div>
+          <div class="log-time">${log.start} - ${log.end} (${fmtDur(duration)})</div>
+          ${log.notes ? `<div class="log-notes">${log.notes}</div>` : ''}
+          <button class="icon-btn" onclick="deleteActivityLog('${date}', '${log.id}')" style="float:right; margin-top:8px;">Delete</button>
+        `;
+        
+        activityLog.appendChild(entry);
+      });
+    }
+
+    function updatePlanningMetrics() {
+      let totals = { study: 0, break: 0, meal: 0, exercise: 0, free: 0, routine: 0 };
+      let dayStart = Infinity, dayEnd = -Infinity;
+      
+      schedule.forEach(blk => {
+        const s = toMinutes(blk.start);
+        const e = toMinutes(blk.end);
+        const dur = Math.max(0, e - s);
+        if (TYPES.includes(blk.type)) totals[blk.type] += dur;
+        dayStart = Math.min(dayStart, s);
+        dayEnd = Math.max(dayEnd, e);
+      });
+      
+      const totalDay = dayEnd > dayStart ? (dayEnd - dayStart) : 0;
+      document.getElementById('totalDay').textContent = fmtDur(totalDay);
+      document.getElementById('sumStudy').textContent = fmtDur(totals.study);
+      document.getElementById('sumBreaks').textContent = fmtDur(totals.break);
+      document.getElementById('sumMeals').textContent = fmtDur(totals.meal);
+      document.getElementById('sumExercise').textContent = fmtDur(totals.exercise);
+      document.getElementById('sumFree').textContent = fmtDur(totals.free);
+      document.getElementById('sumRoutine').textContent = fmtDur(totals.routine);
+      
+      const denom = totalDay || Object.values(totals).reduce((sum, val) => sum + val, 0);
+      const util = denom ? Math.round((totals.study / denom) * 100) : 0;
+      document.getElementById('utilization').textContent = `${util}%`;
+    }
+
+    function updateMetrics() {
+      updateTrackingMetrics();
+      updateAnalysisMetrics();
+      updateComparison();
+      updateInsights();
+    }
+
+    function updateTrackingMetrics() {
+      const today = getTodayString();
+      const logs = activityLogs[today] || [];
+      
+      let totals = { study: 0, break: 0, meal: 0, exercise: 0, free: 0, routine: 0 };
+      logs.forEach(log => {
+        const duration = toMinutes(log.end) - toMinutes(log.start);
+        if (TYPES.includes(log.type)) {
+          totals[log.type] += duration;
+        }
+      });
+      
+      const totalActual = Object.values(totals).reduce((sum, val) => sum + val, 0);
+      const goalMinutes = studyGoal * 60;
+      const goalProgress = goalMinutes > 0 ? Math.round((totals.study / goalMinutes) * 100) : 0;
+      const efficiency = totalActual > 0 ? Math.round((totals.study / totalActual) * 100) : 0;
+      
+      document.getElementById('actualStudy').textContent = fmtDur(totals.study);
+      document.getElementById('totalActual').textContent = fmtDur(totalActual);
+      document.getElementById('goalProgress').textContent = `${Math.min(goalProgress, 100)}%`;
+      document.getElementById('efficiency').textContent = `${efficiency}%`;
+    }
+
+    function updateAnalysisMetrics() {
+      const today = new Date();
+      const weekDays = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        weekDays.push(date.toISOString().split('T')[0]);
+      }
+      
+      let totalStudyMinutes = 0;
+      let bestDayMinutes = 0;
+      let streak = 0;
+      
+      weekDays.forEach(date => {
+        const logs = activityLogs[date] || [];
+        const studyMinutes = logs.reduce((sum, log) => {
+          if (log.type === 'study') {
+            return sum + (toMinutes(log.end) - toMinutes(log.start));
+          }
+          return sum;
+        }, 0);
+        
+        totalStudyMinutes += studyMinutes;
+        bestDayMinutes = Math.max(bestDayMinutes, studyMinutes);
+        
+        if (studyMinutes > 0) streak++;
+      });
+      
+      const avgDaily = Math.round(totalStudyMinutes / 7);
+      const goalMinutes = studyGoal * 60;
+      const weeklyGoalMinutes = goalMinutes * 7;
+      const progressPercent = Math.min((totalStudyMinutes / weeklyGoalMinutes) * 100, 100);
+      
+      document.getElementById('weeklyStudy').textContent = fmtDur(totalStudyMinutes);
+      document.getElementById('avgDaily').textContent = fmtDur(avgDaily);
+      document.getElementById('bestDay').textContent = fmtDur(bestDayMinutes);
+      document.getElementById('streak').textContent = `${streak} days`;
+      document.getElementById('weekProgress').style.width = `${progressPercent}%`;
+      document.getElementById('progressText').textContent = `${fmtDur(totalStudyMinutes)} of ${fmtDur(weeklyGoalMinutes)} completed this week`;
+    }
+
+    function updateComparison() {
+      const today = getTodayString();
+      const todayLogs = activityLogs[today] || [];
+      
+      // Planned breakdown
+      let plannedTotals = { study: 0, break: 0, meal: 0, exercise: 0, free: 0, routine: 0 };
+      schedule.forEach(blk => {
+        const duration = toMinutes(blk.end) - toMinutes(blk.start);
+        if (TYPES.includes(blk.type)) {
+          plannedTotals[blk.type] += duration;
+        }
+      });
+      
+      // Actual breakdown
+      let actualTotals = { study: 0, break: 0, meal: 0, exercise: 0, free: 0, routine: 0 };
+      todayLogs.forEach(log => {
+        const duration = toMinutes(log.end) - toMinutes(log.start);
+        if (TYPES.includes(log.type)) {
+          actualTotals[log.type] += duration;
+        }
+      });
+      
+      // Render breakdowns
+      document.getElementById('plannedBreakdown').innerHTML = TYPES.map(type => 
+        `<div style="display:flex; justify-content:space-between; margin:4px 0;">
+          <span class="chip ${type}">${type}</span>
+          <strong>${fmtDur(plannedTotals[type])}</strong>
+        </div>`
+      ).join('');
+      
+      document.getElementById('actualBreakdown').innerHTML = TYPES.map(type => 
+        `<div style="display:flex; justify-content:space-between; margin:4px 0;">
+          <span class="chip ${type}">${type}</span>
+          <strong>${fmtDur(actualTotals[type])}</strong>
+        </div>`
+      ).join('');
+    }
+
+    function updateInsights() {
+      const today = getTodayString();
+      const todayLogs = activityLogs[today] || [];
+      const insightsEl = document.getElementById('insights');
+      
+      if (todayLogs.length === 0) {
+        insightsEl.innerHTML = '<p style="color:var(--muted); font-style:italic;">Start tracking your activities to see personalized insights here.</p>';
+        return;
+      }
+      
+      const studyTime = todayLogs.reduce((sum, log) => {
+        if (log.type === 'study') {
+          return sum + (toMinutes(log.end) - toMinutes(log.start));
+        }
+        return sum;
+      }, 0);
+      
+      const goalMinutes = studyGoal * 60;
+      let insights = [];
+      
+      if (studyTime >= goalMinutes) {
+        insights.push("🎉 Excellent! You've reached your daily study goal!");
+      } else {
+        const remaining = goalMinutes - studyTime;
+        insights.push(`📊 ${fmtDur(remaining)} more needed to reach your daily goal.`);
+      }
+      
+      if (studyTime > 0) {
+        const studySessions = todayLogs.filter(l => l.type === 'study');
+        const avgSession = Math.round(studyTime / studySessions.length);
+        insights.push(`⏱️ Your average study session today is ${fmtDur(avgSession)}.`);
+        
+        if (avgSession < 30) {
+          insights.push("💡 Try longer study sessions for better focus and flow.");
+        } else if (avgSession > 120) {
+          insights.push("💡 Great focus! Remember to take regular breaks.");
+        }
+      }
+      
+      // Calculate weekly consistency
+      const today_date = new Date();
+      let weeklyStudyDays = 0;
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(today_date);
+        date.setDate(today_date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const logs = activityLogs[dateStr] || [];
+        const studyTime = logs.reduce((sum, log) => log.type === 'study' ? sum + (toMinutes(log.end) - toMinutes(log.start)) : sum, 0);
+        if (studyTime > 0) weeklyStudyDays++;
+      }
+      
+      if (weeklyStudyDays >= 5) {
+        insights.push("🔥 Amazing consistency this week! Keep it up!");
+      } else if (weeklyStudyDays >= 3) {
+        insights.push("👍 Good consistency this week. Try to study more regularly.");
+      }
+      
+      insightsEl.innerHTML = insights.map(insight => `<p style="margin:8px 0;">${insight}</p>`).join('');
+    }
+
+    // === TIMER FUNCTIONS ===
+    function updateTimerDisplay() {
+      timerDisplay.textContent = formatTime(timerSeconds);
+    }
+
+    function startTimer() {
+      if (!timerRunning) {
+        timerRunning = true;
+        timerInterval = setInterval(() => {
+          timerSeconds++;
+          updateTimerDisplay();
+        }, 1000);
+        document.getElementById('startTimer').textContent = "Running...";
+        document.getElementById('startTimer').disabled = true;
+      }
+    }
+
+    function pauseTimer() {
+      if (timerRunning) {
+        timerRunning = false;
+        clearInterval(timerInterval);
+        document.getElementById('startTimer').textContent = "Resume";
+        document.getElementById('startTimer').disabled = false;
+      }
+    }
+
+    function stopTimer() {
+      if (timerSeconds > 0) {
+        const now = new Date();
+        const startTime = new Date(now.getTime() - (timerSeconds * 1000));
+        document.getElementById('logStart').value = `${String(startTime.getHours()).padStart(2, "0")}:${String(startTime.getMinutes()).padStart(2, "0")}`;
+        document.getElementById('logEnd').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        document.getElementById('logType').value = document.getElementById('currentActivity').value;
+        document.getElementById('logActivity').value = `${document.getElementById('currentActivity').value.charAt(0).toUpperCase() + document.getElementById('currentActivity').value.slice(1)} session (${formatTime(timerSeconds)})`;
+      }
+      
+      timerRunning = false;
+      clearInterval(timerInterval);
+      timerSeconds = 0;
+      updateTimerDisplay();
+      document.getElementById('startTimer').textContent = "Start";
+      document.getElementById('startTimer').disabled = false;
+    }
+
+    // === SCHEDULE FUNCTIONS ===
+    function addBlock(blk) {
+      schedule.push(blk);
+      renderSchedule();
+      saveSchedule();
+    }
+
+    function updateBlock(index, blk) {
+      schedule[index] = blk;
+      renderSchedule();
+      saveSchedule();
+    }
+
+    function deleteBlock(index) {
+      schedule.splice(index, 1);
+      renderSchedule();
+      saveSchedule();
+    }
+
+    function startEdit(index) {
+      const blk = schedule[index];
+      document.getElementById('label').value = blk.label;
+      document.getElementById('start').value = blk.start;
+      document.getElementById('end').value = blk.end;
+      document.getElementById('type').value = blk.type;
+      document.getElementById('notes').value = blk.notes ?? "";
+      editIndex = index;
+      document.getElementById('submitBtn').textContent = "Update Block";
+      document.getElementById('cancelEdit').hidden = false;
+    }
+
+    function cancelEdit() {
+      editIndex = null;
+      blockForm.reset();
+      document.getElementById('start').value = "08:00";
+      document.getElementById('end').value = "09:00";
+      document.getElementById('submitBtn').textContent = "Add Block";
+      document.getElementById('cancelEdit').hidden = true;
+    }
+
+    // === ACTIVITY LOG FUNCTIONS ===
+    function logActivity(activity, start, end, type, notes, date = getTodayString()) {
+      if (!activityLogs[date]) {
+        activityLogs[date] = [];
+      }
+      
+      const logEntry = {
+        id: Date.now().toString(),
+        activity,
+        start,
+        end,
+        type,
+        notes,
+        timestamp: new Date().toISOString()
+      };
+      
+      activityLogs[date].push(logEntry);
+      activityLogs[date].sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+      
+      saveActivityLog(date, activityLogs[date]);
+      
+      if (date === dateSelector.value) {
+        renderActivityLog();
+        updateMetrics();
+      }
+    }
+
+    window.deleteActivityLog = function(date, logId) {
+      if (activityLogs[date]) {
+        activityLogs[date] = activityLogs[date].filter(log => log.id !== logId);
+        if (activityLogs[date].length === 0) {
+          delete activityLogs[date];
+        }
+        saveActivityLog(date, activityLogs[date] || []);
+        renderActivityLog();
+        updateMetrics();
+      }
+    };
+
+    // === NAVIGATION ===
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const page = tab.dataset.page;
+        
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(page).classList.add('active');
+        
+        currentPage = page;
+        
+        if (page === 'analysis') {
+          updateMetrics();
+        } else if (page === 'tracking') {
+          renderActivityLog();
+          updateMetrics();
+        }
+      });
+    });
+
+    // === EVENT LISTENERS ===
+    blockForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const label = document.getElementById('label').value.trim();
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      const type = document.getElementById('type').value;
+      const notes = document.getElementById('notes').value.trim();
+
+      if (!label || !start || !end || !type) return;
+      if (toMinutes(end) <= toMinutes(start)) {
+        alert("End time must be after start time.");
+        return;
+      }
+
+      const blk = { label, start, end, type, notes };
+      if (editIndex === null) {
+        addBlock(blk);
+      } else {
+        updateBlock(editIndex, blk);
+        cancelEdit();
+      }
+    });
+
+    logForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const activity = document.getElementById('logActivity').value.trim();
+      const start = document.getElementById('logStart').value;
+      const end = document.getElementById('logEnd').value;
+      const type = document.getElementById('logType').value;
+      const notes = document.getElementById('logNotes').value.trim();
+
+      if (!activity || !start || !end || !type) return;
+      if (toMinutes(end) <= toMinutes(start)) {
+        alert("End time must be after start time.");
+        return;
+      }
+
+      logActivity(activity, start, end, type, notes, dateSelector.value);
+      logForm.reset();
+      
+      const now = new Date();
+      document.getElementById('logStart').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    });
+
+    // Timer controls
+    document.getElementById('startTimer').addEventListener("click", startTimer);
+    document.getElementById('pauseTimer').addEventListener("click", pauseTimer);
+    document.getElementById('stopTimer').addEventListener("click", stopTimer);
+
+    // Date selector
+    dateSelector.addEventListener("change", () => {
+      renderActivityLog();
+      updateMetrics();
+    });
+
+    // Preset buttons
+    document.getElementById("loadContinuous").addEventListener("click", () => {
+      schedule = JSON.parse(JSON.stringify(PRESETS.continuous));
+      cancelEdit();
+      renderSchedule();
+    });
+
+    document.getElementById("loadNonContinuous").addEventListener("click", () => {
+      schedule = JSON.parse(JSON.stringify(PRESETS.nonContinuous));
+      cancelEdit();
+      renderSchedule();
+    });
+
+    document.getElementById("clearAll").addEventListener("click", () => {
+      if (confirm("Clear all planned blocks?")) {
+        schedule = [];
+        cancelEdit();
+        renderSchedule();
+      }
+    });
+
+    document.getElementById("exportText").addEventListener("click", () => {
+      if (!schedule.length) {
+        alert("No items to export.");
+        return;
+      }
+      const lines = schedule.map(b => {
+        const dur = fmtDur(toMinutes(b.end) - toMinutes(b.start));
+        const note = b.notes ? ` | ${b.notes}` : "";
+        return `${b.start}-${b.end} | ${b.type.toUpperCase()} | ${b.label} | ${dur}${note}`;
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "daily-schedule.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Study goal
+    document.getElementById("saveGoal").addEventListener("click", () => {
+      studyGoal = parseFloat(document.getElementById('studyGoal').value);
+      saveUserSettings();
+      updateMetrics();
+      alert("Study goal saved!");
+    });
+
+    document.getElementById("cancelEdit").addEventListener("click", cancelEdit);
+
+    // === AUTH STATE OBSERVER ===
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        userEmail.textContent = user.email;
+        authContainer.style.display = 'none';
+        mainApp.style.display = 'block';
+        
+        updateSyncStatus('syncing');
+        
+        // Load user data
+        await Promise.all([
+          loadUserSettings(),
+          loadSchedule(),
+          loadActivityLogs()
+        ]);
+        
+        updateSyncStatus('online');
+        updateTimerDisplay();
+      } else {
+        currentUser = null;
+        authContainer.style.display = 'flex';
+        mainApp.style.display = 'none';
+        
+        // Reset state
+        schedule = [];
+        activityLogs = {};
+        studyGoal = 8;
+        timerSeconds = 0;
+        timerRunning = false;
+      }
+    });
+  </script>
+</body>
+</html>
