@@ -1104,23 +1104,53 @@ const firebaseConfig = {
       }
     }
 
-    function stopTimer() {
-      if (timerSeconds > 0) {
-        const now = new Date();
-        const startTime = new Date(now.getTime() - (timerSeconds * 1000));
-        document.getElementById('logStart').value = `${String(startTime.getHours()).padStart(2, "0")}:${String(startTime.getMinutes()).padStart(2, "0")}`;
-        document.getElementById('logEnd').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-        document.getElementById('logType').value = document.getElementById('currentActivity').value;
-        document.getElementById('logActivity').value = `${document.getElementById('currentActivity').value.charAt(0).toUpperCase() + document.getElementById('currentActivity').value.slice(1)} session (${formatTime(timerSeconds)})`;
-      }
-      
-      timerRunning = false;
-      clearInterval(timerInterval);
-      timerSeconds = 0;
-      updateTimerDisplay();
-      document.getElementById('startTimer').textContent = "Start";
-      document.getElementById('startTimer').disabled = false;
-    }
+   function stopTimer() {
+  if (timerSeconds > 0) {
+    // Auto-fill log form with timer data
+    const now = new Date();
+    const startTime = new Date(now.getTime() - (timerSeconds * 1000));
+    
+    const startTimeStr = `${String(startTime.getHours()).padStart(2, "0")}:${String(startTime.getMinutes()).padStart(2, "0")}`;
+    const endTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const activityType = document.getElementById('currentActivity').value;
+    const activityName = `${activityType.charAt(0).toUpperCase() + activityType.slice(1)} session (${formatTime(timerSeconds)})`;
+    
+    // Fill the form
+    document.getElementById('logStart').value = startTimeStr;
+    document.getElementById('logEnd').value = endTimeStr;
+    document.getElementById('logType').value = activityType;
+    document.getElementById('logActivity').value = activityName;
+    
+    // **AUTOMATICALLY LOG THE ACTIVITY**
+    const notes = document.getElementById('logNotes').value || `Timed session: ${formatTime(timerSeconds)}`;
+    
+    // Call the logActivity function to save to Firebase
+    logActivity(activityName, startTimeStr, endTimeStr, activityType, notes, dateSelector.value);
+    
+    // Clear the form for next use
+    document.getElementById('logNotes').value = '';
+    
+    // Show success message
+    alert(`✅ Activity logged successfully!\n${formatTime(timerSeconds)} ${activityType} session saved.`);
+    
+    console.log('Timer stopped and activity logged:', {
+      activity: activityName,
+      start: startTimeStr,
+      end: endTimeStr,
+      type: activityType,
+      duration: formatTime(timerSeconds)
+    });
+  }
+  
+  // Reset timer
+  timerRunning = false;
+  clearInterval(timerInterval);
+  timerSeconds = 0;
+  updateTimerDisplay();
+  document.getElementById('startTimer').textContent = "Start";
+  document.getElementById('startTimer').disabled = false;
+}
+
 
     // === SCHEDULE FUNCTIONS ===
     function addBlock(blk) {
