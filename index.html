@@ -531,8 +531,11 @@ const firebaseConfig = {
     let activityLogs = {};
     let studyGoal = 8;
     let currentPage = 'planning';
+    
+    // 🔧 FIXED: Sleep-resistant timer variables
     let timerInterval = null;
-    let timerSeconds = 0;
+    let timerStartTime = null;
+    let timerPausedTime = 0;
     let timerRunning = false;
     let editIndex = null;
 
@@ -1078,79 +1081,110 @@ const firebaseConfig = {
       insightsEl.innerHTML = insights.map(insight => `<p style="margin:8px 0;">${insight}</p>`).join('');
     }
 
-    // === TIMER FUNCTIONS ===
+    // 🔧 FIXED: Sleep-resistant timer functions
     function updateTimerDisplay() {
-      timerDisplay.textContent = formatTime(timerSeconds);
+      let totalSeconds = 0;
+      
+      if (timerRunning && timerStartTime) {
+        // Calculate elapsed time from start
+        const now = Date.now();
+        totalSeconds = Math.floor((now - timerStartTime) / 1000) + timerPausedTime;
+      } else if (timerPausedTime > 0) {
+        // Show paused time
+        totalSeconds = timerPausedTime;
+      }
+      
+      timerDisplay.textContent = formatTime(totalSeconds);
     }
 
     function startTimer() {
       if (!timerRunning) {
         timerRunning = true;
+        timerStartTime = Date.now();
+        
         timerInterval = setInterval(() => {
-          timerSeconds++;
           updateTimerDisplay();
         }, 1000);
+        
         document.getElementById('startTimer').textContent = "Running...";
         document.getElementById('startTimer').disabled = true;
       }
     }
 
     function pauseTimer() {
-      if (timerRunning) {
+      if (timerRunning && timerStartTime) {
         timerRunning = false;
         clearInterval(timerInterval);
+        
+        // Save elapsed time
+        const now = Date.now();
+        timerPausedTime += Math.floor((now - timerStartTime) / 1000);
+        timerStartTime = null;
+        
         document.getElementById('startTimer').textContent = "Resume";
         document.getElementById('startTimer').disabled = false;
+        
+        updateTimerDisplay();
       }
     }
 
-   function stopTimer() {
-  if (timerSeconds > 0) {
-    // Auto-fill log form with timer data
-    const now = new Date();
-    const startTime = new Date(now.getTime() - (timerSeconds * 1000));
-    
-    const startTimeStr = `${String(startTime.getHours()).padStart(2, "0")}:${String(startTime.getMinutes()).padStart(2, "0")}`;
-    const endTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const activityType = document.getElementById('currentActivity').value;
-    const activityName = `${activityType.charAt(0).toUpperCase() + activityType.slice(1)} session (${formatTime(timerSeconds)})`;
-    
-    // Fill the form
-    document.getElementById('logStart').value = startTimeStr;
-    document.getElementById('logEnd').value = endTimeStr;
-    document.getElementById('logType').value = activityType;
-    document.getElementById('logActivity').value = activityName;
-    
-    // **AUTOMATICALLY LOG THE ACTIVITY**
-    const notes = document.getElementById('logNotes').value || `Timed session: ${formatTime(timerSeconds)}`;
-    
-    // Call the logActivity function to save to Firebase
-    logActivity(activityName, startTimeStr, endTimeStr, activityType, notes, dateSelector.value);
-    
-    // Clear the form for next use
-    document.getElementById('logNotes').value = '';
-    
-    // Show success message
-    alert(`✅ Activity logged successfully!\n${formatTime(timerSeconds)} ${activityType} session saved.`);
-    
-    console.log('Timer stopped and activity logged:', {
-      activity: activityName,
-      start: startTimeStr,
-      end: endTimeStr,
-      type: activityType,
-      duration: formatTime(timerSeconds)
-    });
-  }
-  
-  // Reset timer
-  timerRunning = false;
-  clearInterval(timerInterval);
-  timerSeconds = 0;
-  updateTimerDisplay();
-  document.getElementById('startTimer').textContent = "Start";
-  document.getElementById('startTimer').disabled = false;
-}
-
+    function stopTimer() {
+      let totalSeconds = 0;
+      
+      if (timerRunning && timerStartTime) {
+        // Calculate total elapsed time
+        const now = Date.now();
+        totalSeconds = Math.floor((now - timerStartTime) / 1000) + timerPausedTime;
+      } else if (timerPausedTime > 0) {
+        totalSeconds = timerPausedTime;
+      }
+      
+      if (totalSeconds > 0) {
+        // Auto-fill log form with timer data
+        const now = new Date();
+        const startTime = new Date(now.getTime() - (totalSeconds * 1000));
+        
+        const startTimeStr = `${String(startTime.getHours()).padStart(2, "0")}:${String(startTime.getMinutes()).padStart(2, "0")}`;
+        const endTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const activityType = document.getElementById('currentActivity').value;
+        const activityName = `${activityType.charAt(0).toUpperCase() + activityType.slice(1)} session (${formatTime(totalSeconds)})`;
+        
+        // Fill the form
+        document.getElementById('logStart').value = startTimeStr;
+        document.getElementById('logEnd').value = endTimeStr;
+        document.getElementById('logType').value = activityType;
+        document.getElementById('logActivity').value = activityName;
+        
+        // Automatically log the activity
+        const notes = document.getElementById('logNotes').value || `Timed session: ${formatTime(totalSeconds)}`;
+        
+        // Call the logActivity function to save to Firebase
+        logActivity(activityName, startTimeStr, endTimeStr, activityType, notes, dateSelector.value);
+        
+        // Clear the form for next use
+        document.getElementById('logNotes').value = '';
+        
+        // Show success message
+        alert(`✅ Activity logged successfully!\n${formatTime(totalSeconds)} ${activityType} session saved.`);
+        
+        console.log('Timer stopped and activity logged:', {
+          activity: activityName,
+          start: startTimeStr,
+          end: endTimeStr,
+          type: activityType,
+          duration: formatTime(totalSeconds)
+        });
+      }
+      
+      // Reset timer
+      timerRunning = false;
+      clearInterval(timerInterval);
+      timerStartTime = null;
+      timerPausedTime = 0;
+      updateTimerDisplay();
+      document.getElementById('startTimer').textContent = "Start";
+      document.getElementById('startTimer').disabled = false;
+    }
 
     // === SCHEDULE FUNCTIONS ===
     function addBlock(blk) {
@@ -1387,10 +1421,12 @@ const firebaseConfig = {
         schedule = [];
         activityLogs = {};
         studyGoal = 8;
-        timerSeconds = 0;
+        timerStartTime = null;
+        timerPausedTime = 0;
         timerRunning = false;
       }
     });
   </script>
 </body>
 </html>
+
